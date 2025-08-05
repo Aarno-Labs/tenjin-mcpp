@@ -36,6 +36,10 @@
  *      1. specify the constants in "configed.H" or "noconfig.H",
  *      2. append the system-dependent routines in this file.
  */
+
+// NOTE: This include must come first for some reason.
+#include <unistd.h>
+
 #if PREPROCESSED
 #include    "mcpp.H"
 #else
@@ -278,7 +282,7 @@ static int      search_rule = SEARCH_INIT;  /* Rule to search include file  */
 static int      nflag = FALSE;          /* Flag of -N (-undef) option       */
 static long     std_val = -1L;  /* Value of __STDC_VERSION__ or __cplusplus */
 
-#define MAX_DEF   256
+#define MAX_DEF   8192
 #define MAX_UNDEF (MAX_DEF/4)
 static char *   def_list[ MAX_DEF];     /* Macros to be defined     */
 static char *   undef_list[ MAX_UNDEF]; /* Macros to be undefined   */
@@ -407,6 +411,31 @@ void    init_system( void)
 
 #define OPTLISTLEN  80
 
+void load_blocked_macros(const char *filename) {
+    FILE *f = fopen(filename, "r");
+    if (!f) {
+        fprintf(stderr, "Error: can't open blocked macro list: %s\n", filename);
+        exit(1);
+    }
+
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        line[strcspn(line, "\r\n")] = 0;  // strip newline
+
+        if (*line == '\0' || *line == '#') continue;
+
+        if (num_blocked_macros >= MAX_BLOCKED - 1) {
+            fprintf(stderr, "Too many blocked macros (max %d)\n", MAX_BLOCKED);
+            exit(1);
+        }
+
+        blocked_macros[num_blocked_macros++] = strdup(line);
+    }
+
+    blocked_macros[num_blocked_macros] = NULL;
+    fclose(f);
+}
+
 void    do_options(
     int         argc,
     char **     argv,
@@ -476,6 +505,9 @@ opt_search: ;
             && (opt = mcpp_getopt( argc, argv, optlist)) != EOF) {
 
         switch (opt) {          /* Command line option character    */
+        case 'Z':
+            load_blocked_macros(mcpp_optarg);
+            break;
 
 #if COMPILER == GNUC
         case '$':                       /* Forbid '$' in identifier */
@@ -1641,7 +1673,7 @@ static void set_opt_list(
 
     const char * const *    lp = & list[ 0];
 
-    strcpy( optlist, "23+@:e:h:jkn:o:vzCD:I:KM:NPQS:U:V:W:");
+    strcpy( optlist, "23+@:e:h:jkn:o:vzCD:I:KM:NPQS:U:V:W:Z:");
                                                 /* Default options  */
     while (*lp)
         strcat( optlist, *lp++);

@@ -45,6 +45,9 @@
 #define CERROR      1
 #define CWARN       2
 
+const char *blocked_macros[MAX_BLOCKED];
+int num_blocked_macros = 0;
+
 typedef struct location {           /* Where macro or arg locate    */
     long            start_line;                 /* Beginning at 1   */
     size_t          start_col;                  /* Beginning at 0   */
@@ -295,6 +298,35 @@ static char *   expand_std(
     has_pragma = FALSE;                     /* Have to re-initialize*/
     macro_line = src_line;                  /* Line number for diag */
     macro_name = defp->name;
+
+    for (const char **p = blocked_macros; *p; ++p) {
+        if (strcmp(defp->name, *p) == 0) {
+            out_p = out;
+
+            // Emit macro name
+            const char *namep = defp->name;
+            while (*namep)
+                *out_p++ = *namep++;
+
+            int paren = get_ch(); // consume '('
+            *out_p++ = paren;
+
+            int level = 1;
+            while (level > 0 && out_p < out_end) {
+                int ch = get_ch();
+                if (ch == '(')
+                    level++;
+                else if (ch == ')')
+                    level--;
+                *out_p++ = ch;
+            }
+
+            *out_p = '\0';
+            *pragma_op = FALSE;
+            return out_p;
+        }
+    }
+
     rescan_level = 0;
     trace_macro = (mcpp_mode == STD) && (mcpp_debug & MACRO_CALL)
             && ! in_directive;

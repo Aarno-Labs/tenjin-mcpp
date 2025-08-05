@@ -560,3 +560,7 @@ extern void     init_system( void);
 #if HOST_HAVE_STPCPY
 extern char *   stpcpy( char * dest, const char * src);
 #endif
+
+#define MAX_BLOCKED 128
+extern const char *blocked_macros[];
+extern int num_blocked_macros;
